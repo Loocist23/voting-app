@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Packer
-        uses: hashicorp/setup-packer@v1.0.3 # Use a specific version that exists
+        uses: hashicorp/setup-packer@main
         with:
           packer-version: '1.7.4' # Use a version that you have confirmed is compatible with your configuration
 
