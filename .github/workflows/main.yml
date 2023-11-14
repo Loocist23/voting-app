@@ -1,11 +1,18 @@
 name: Continuous Integration Pipeline
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'voting-app.pkr.hcl'
 
 jobs:
   lint-and-security-check:
     name: Lint and Security Check
     runs-on: ubuntu-latest
+    outputs:
+      IMAGE_TAG: ${{ steps.extract_image_tag.outputs.IMAGE_TAG }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -15,36 +22,37 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8 safety
 
-      - name: Run linter
+      - name: Run Python linter (flake8)
         run: flake8 .
 
-      - name: Check security
+      - name: Check Python code security (safety)
         run: safety check
 
   build-and-push:
     needs: lint-and-security-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Set up Packer
-        uses: hashicorp/setup-packer@main
+        uses: hashicorp/setup-packer@v1.0.3
         with:
-          packer-version: '1.9.4'
+          packer-version: '1.7.4'
 
       - name: Initialize Packer
         run: packer init voting-app.pkr.hcl
 
-      - name: Format Packer configuration
-        run: packer fmt voting-app.pkr.hcl
-
       - name: Validate Packer configuration
         run: packer validate voting-app.pkr.hcl
+
+      - name: Build the Docker image with Packer
+        run: packer build voting-app.pkr.hcl
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
@@ -52,11 +60,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build the Docker image with Packer and tag
-        run: |
-          PACKER_LOG=1 packer build voting-app.pkr.hcl
-          IMAGE_TAG=$(grep 'A docker tag was created:' packer_output.txt | cut -d' ' -f6)
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
       - name: Push Docker image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:${{ env.DOCKER_IMAGE_TAG }}
+        run: |
+          IMAGE_TAG=${{ needs.lint-and-security-check.outputs.IMAGE_TAG }}
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:${IMAGE_TAG}
