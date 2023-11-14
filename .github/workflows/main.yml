@@ -7,24 +7,24 @@ jobs:
     name: Lint and Security Check
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 safety
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 safety
 
-    - name: Run linter
-      run: flake8 .
+      - name: Run linter
+        run: flake8 .
 
-    - name: Check security
-      run: safety check
+      - name: Check security
+        run: safety check
 
   build-and-push:
     needs: lint-and-security-check
@@ -32,25 +32,33 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Packer
-        uses: hashicorp/setup-packer@main
+        uses: hashicorp/setup-packer@v1.0.3 # Use a specific version that exists
         with:
-          packer-version: '1.9.4' # Spécifiez ici la version de Packer que vous utilisez
+          packer-version: '1.7.4' # Use a version that you have confirmed is compatible with your configuration
+
       - name: Initialize Packer
         run: packer init voting-app.pkr.hcl
+
       - name: Format Packer configuration
         run: packer fmt voting-app.pkr.hcl
+
       - name: Validate Packer configuration
         run: packer validate voting-app.pkr.hcl
+
       - name: Build the Docker image with Packer
         run: packer build voting-app.pkr.hcl
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-      - name: Push Docker image to Docker Hub
-        run: docker push username/myimage:tag
 
+      - name: Push Docker image to Docker Hub
+        run: |
+          IMAGE_TAG=$(packer output -machine-readable image_id | cut -d, -f6)
+          docker tag $IMAGE_TAG ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
 
   # BONUS: Semantic Release and Docker tagging
   semantic-release:
@@ -58,24 +66,26 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Semantic Release
-      uses: cycjimmy/semantic-release-action@v2
-      with:
-        branch: master
-        extra_plugins: |
-          @semantic-release/exec
-          @semantic-release/git
-        semantic_version: ${{ needs.build-and-push.outputs.semver }}
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v2
+        with:
+          branch: master
+          extra_plugins: |
+            @semantic-release/exec
+            @semantic-release/git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Tag Docker image with SemVer
-      run: |
-        IMAGE_ID=docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/myapp
-        SEMVER=${{ needs.semantic-release.outputs.new_release_published }}
-
-        if [ "$SEMVER" != "" ]; then
-          docker tag myapp:latest $IMAGE_ID:$SEMVER
-          docker push $IMAGE_ID:$SEMVER
-        fi
+      - name: Tag Docker image with SemVer
+        run: |
+          IMAGE_ID=docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/myimage
+          SEMVER=$(echo ${{ steps.semantic-release.outputs.new_release_version }})
+          if [ ! -z "$SEMVER" ]; then
+            docker tag myimage:latest $IMAGE_ID:$SEMVER
+            docker push $IMAGE_ID:$SEMVER
+          fi
+        env:
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
