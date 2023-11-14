@@ -34,9 +34,13 @@ jobs:
       - name: Set up Packer
         uses: hashicorp/setup-packer@v1.0.4
         with:
-          packer-version: '1.7.0' # Spécifiez ici la version de Packer que vous utilisez
+          packer-version: '1.9.4' # Spécifiez ici la version de Packer que vous utilisez
       - name: Initialize Packer
         run: packer init voting-app.pkr.hcl
+      - name: Format Packer configuration
+        run: packer fmt voting-app.pkr.hcl
+      - name: Validate Packer configuration
+        run: packer validate voting-app.pkr.hcl
       - name: Build the Docker image with Packer
         run: packer build voting-app.pkr.hcl
       - name: Log in to Docker Hub
