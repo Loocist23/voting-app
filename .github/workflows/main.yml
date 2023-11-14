@@ -31,10 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      
       - name: Set up Packer
         uses: hashicorp/setup-packer@main
         with:
-          packer-version: '1.7.4' # Use a version that you have confirmed is compatible with your configuration
+          packer-version: '1.9.4'
 
       - name: Initialize Packer
         run: packer init voting-app.pkr.hcl
@@ -45,30 +46,21 @@ jobs:
       - name: Validate Packer configuration
         run: packer validate voting-app.pkr.hcl
 
-      - name: Build the Docker image with Packer
-        id: packer_build
-        run: |
-          PACKER_LOG=1 packer build -machine-readable voting-app.pkr.hcl | tee packer_output.txt
-          IMAGE_ID=$(grep 'artifact,0,id' packer_output.txt | cut -d, -f6)
-          echo "IMAGE_ID=${IMAGE_ID}" >> $GITHUB_ENV
-
-      - name: Tag and push the Docker image
-        run: |
-          docker tag $IMAGE_ID ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
-
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
+      - name: Build the Docker image with Packer and tag
+        run: |
+          PACKER_LOG=1 packer build voting-app.pkr.hcl
+          IMAGE_TAG=$(grep 'A docker tag was created:' packer_output.txt | cut -d' ' -f6)
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
       - name: Push Docker image to Docker Hub
         run: |
-          IMAGE_TAG=$(packer output -machine-readable image_id | cut -d, -f6)
-          docker tag $IMAGE_TAG ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_TAG }}
 
   # BONUS: Semantic Release and Docker tagging
   semantic-release:
@@ -90,12 +82,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tag Docker image with SemVer
+        if: steps.semantic-release.outputs.new_release_published == 'true'
         run: |
-          IMAGE_ID=docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/myimage
-          SEMVER=$(echo ${{ steps.semantic-release.outputs.new_release_version }})
-          if [ ! -z "$SEMVER" ]; then
-            docker tag myimage:latest $IMAGE_ID:$SEMVER
-            docker push $IMAGE_ID:$SEMVER
-          fi
-        env:
-          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          IMAGE_ID=${{ secrets.DOCKER_HUB_USERNAME }}/myimage
+          SEMVER=${{ steps.semantic-release.outputs.new_release_version }}
+          docker tag $IMAGE_ID:latest $IMAGE_ID:$SEMVER
+          docker push $IMAGE_ID:$SEMVER
