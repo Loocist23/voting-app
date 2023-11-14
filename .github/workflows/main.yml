@@ -46,7 +46,17 @@ jobs:
         run: packer validate voting-app.pkr.hcl
 
       - name: Build the Docker image with Packer
-        run: packer build voting-app.pkr.hcl
+        id: packer_build
+        run: |
+          PACKER_LOG=1 packer build -machine-readable voting-app.pkr.hcl | tee packer_output.txt
+          IMAGE_ID=$(grep 'artifact,0,id' packer_output.txt | cut -d, -f6)
+          echo "IMAGE_ID=${IMAGE_ID}" >> $GITHUB_ENV
+
+      - name: Tag and push the Docker image
+        run: |
+          docker tag $IMAGE_ID ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/myimage:latest
+
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
