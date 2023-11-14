@@ -22,7 +22,7 @@ jobs:
         run: docker build -t my-docker-image .
 
       - name: Scout Docker image
-        run: docker scout my-docker-image
+        run: docker scout quickview
 
       - name: Push Docker image to Docker Hub
         uses: docker/build-push-action@v2
