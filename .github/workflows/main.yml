@@ -2,10 +2,8 @@ name: Continuous Integration Pipeline
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - '**.py'
-      - 'voting-app.pkr.hcl'
+    branches:
+      - main
 
 jobs:
   lint-and-security-check:
