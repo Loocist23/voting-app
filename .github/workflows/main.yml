@@ -27,5 +27,5 @@ jobs:
           context: .
           push: true
           tags: |
-            my-docker-image:latest
+            ${{ secrets.DOCKER_USERNAME }}/my-docker-image:latest
             my-docker-image:${{ github.sha }}
