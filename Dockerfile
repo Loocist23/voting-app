@@ -1,11 +1,5 @@
 # Utilise l'image Ubuntu officielle
-FROM ubuntu:22.04 as oui
-
-# Met à jour les paquets et installe Python et curl
-RUN apt update && \
-    apt install -y python3 python3-pip curl
-
-copy --from oui /bin/python3
+FROM python:latest
 
 # Définit le répertoire de travail dans le conteneur
 WORKDIR /app
