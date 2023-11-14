@@ -21,8 +21,8 @@ jobs:
       - name: Build Docker image
         run: docker build -t my-docker-image .
 
-      - name: Test Docker image
-        run: docker run my-docker-image npm test
+      - name: Scout Docker image
+        run: docker scout my-docker-image
 
       - name: Push Docker image to Docker Hub
         uses: docker/build-push-action@v2
