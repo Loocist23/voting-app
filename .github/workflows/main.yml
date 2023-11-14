@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Packer
-        uses: hashicorp/setup-packer@v1
+        uses: hashicorp/setup-packer@main
         with:
           packer-version: '1.9.4' # Spécifiez ici la version de Packer que vous utilisez
       - name: Initialize Packer
