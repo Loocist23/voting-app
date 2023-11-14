@@ -27,31 +27,26 @@ jobs:
       run: safety check
 
   build-and-push:
-    name: Build and Push Docker Image
     needs: lint-and-security-check
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - name: Set up Packer
+        uses: hashicorp/setup-packer@v1.0.4
+        with:
+          packer-version: '1.7.0' # Spécifiez ici la version de Packer que vous utilisez
+      - name: Initialize Packer
+        run: packer init voting-app.pkr.hcl
+      - name: Build the Docker image with Packer
+        run: packer build voting-app.pkr.hcl
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      - name: Push Docker image to Docker Hub
+        run: docker push username/myimage:tag
 
-    - name: Build the Docker image with Packer
-      run: packer build voting-app.pkr.hcl
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-    - name: Push Docker image to Docker Hub
-      run: |
-        IMAGE_ID=docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/myapp
-
-        # Tag the image with the latest tag
-        docker tag myapp:latest $IMAGE_ID:latest
-
-        # Push the image to Docker Hub
-        docker push $IMAGE_ID:latest
 
   # BONUS: Semantic Release and Docker tagging
   semantic-release:
